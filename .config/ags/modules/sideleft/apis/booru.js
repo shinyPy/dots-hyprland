@@ -9,7 +9,7 @@ import { MarginRevealer } from '../../.widgethacks/advancedrevealers.js';
 import { setupCursorHover, setupCursorHoverInfo } from '../../.widgetutils/cursorhover.js';
 import BooruService from '../../../services/booru.js';
 import { chatEntry } from '../apiwidgets.js';
-import { ConfigToggle } from '../../.commonwidgets/configwidgets.js';
+// import { ConfigToggle } from '../../.commonwidgets/configwidgets.js';
 import { SystemMessage } from './ai_chatmessage.js';
 
 const IMAGE_REVEAL_DELAY = 13; // Some wait for inits n other weird stuff
@@ -81,40 +81,40 @@ const BooruInfo = () => {
     });
 }
 
-export const BooruSettings = () => MarginRevealer({
-    transition: 'slide_down',
-    revealChild: true,
-    child: Box({
-        vertical: true,
-        className: 'sidebar-chat-settings',
-        children: [
-            Box({
-                vertical: true,
-                hpack: 'fill',
-                className: 'sidebar-chat-settings-toggles',
-                children: [
-                    ConfigToggle({
-                        icon: 'menstrual_health',
-                        name: 'Lewds',
-                        desc: `Shows naughty stuff when enabled.\nYa like those? Add this to user_options.js:
-'sidebar': {
-  'image': {
-    'allowNsfw': true,
-  }
-},`,
-                        initValue: BooruService.nsfw,
-                        onChange: (self, newValue) => {
-                            BooruService.nsfw = newValue;
-                        },
-                        extraSetup: (self) => self.hook(BooruService, (self) => {
-                            self.attribute.enabled.value = BooruService.nsfw;
-                        }, 'notify::nsfw')
-                    }),
-                ]
-            })
-        ]
-    })
-});
+// export const BooruSettings = () => MarginRevealer({
+//     transition: 'slide_down',
+//     revealChild: true,
+//     child: Box({
+//         vertical: true,
+//         className: 'sidebar-chat-settings',
+//         children: [
+//             Box({
+//                 vertical: true,
+//                 hpack: 'fill',
+//                 className: 'sidebar-chat-settings-toggles',
+//                 children: [
+//                     ConfigToggle({
+//                         icon: 'menstrual_health',
+//                         name: 'Lewds',
+//                         desc: `Shows naughty stuff when enabled.\nYa like those? Add this to user_options.js:
+// 'sidebar': {
+//   'image': {
+//     'allowNsfw': true,
+//   }
+// },`,
+//                         initValue: BooruService.nsfw,
+//                         onChange: (self, newValue) => {
+//                             BooruService.nsfw = newValue;
+//                         },
+//                         extraSetup: (self) => self.hook(BooruService, (self) => {
+//                             self.attribute.enabled.value = BooruService.nsfw;
+//                         }, 'notify::nsfw')
+//                     }),
+//                 ]
+//             })
+//         ]
+//     })
+// });
 
 const booruWelcome = Box({
     vexpand: true,
@@ -125,7 +125,7 @@ const booruWelcome = Box({
         vertical: true,
         children: [
             BooruInfo(),
-            BooruSettings(),
+            // BooruSettings(),
         ]
     })
 });
@@ -141,14 +141,16 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
             }),
             MaterialIcon(icon, 'norm'),
         ]
-    })
+    });
+
     const ImageAction = ({ name, icon, action }) => Button({
         className: 'sidebar-waifu-image-action txt-norm icon-material',
         tooltipText: name,
         label: icon,
         onClicked: action,
         setup: setupCursorHover,
-    })
+    });
+
     const PreviewImage = (data, delay = 0) => {
         const imageArea = Widget.DrawingArea({
             className: 'sidebar-booru-image-drawingarea',
@@ -163,8 +165,8 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                     const widgetWidth = widgetStyleContext.get_property('min-width', Gtk.StateFlags.NORMAL);
                     const widgetHeight = widgetWidth / data.aspect_ratio;
                     imageArea.set_size_request(widgetWidth, widgetHeight);
+
                     const showImage = () => {
-                        // const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(imagePath, widgetWidth, widgetHeight);
                         const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(imagePath, widgetWidth, widgetHeight, false);
                         imageArea.connect("draw", (widget, cr) => {
                             const borderRadius = widget.get_style_context().get_property('border-radius', Gtk.StateFlags.NORMAL);
@@ -183,16 +185,23 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                         });
                         self.queue_draw();
                         imageRevealer.revealChild = true;
-                    }
+                    };
+
                     // Show
-                    // const downloadCommand = `wget -O '${imagePath}' '${data.preview_url}'`;
                     const downloadCommand = `curl -L -o '${imagePath}' '${data.preview_url}'`;
-                    // console.log(downloadCommand)
-                    if (!force && fileExists(imagePath)) showImage();
-                    else Utils.timeout(delay, () => Utils.execAsync(['bash', '-c', downloadCommand])
-                        .then(showImage)
-                        .catch(print)
-                    );
+                    console.log("Download Command: ", downloadCommand);
+
+                    if (!force && fileExists(imagePath)) {
+                        showImage();
+                    } else {
+                        Utils.timeout(delay, () => {
+                            return Utils.execAsync(['bash', '-c', downloadCommand])
+                                .then(showImage)
+                                .catch((error) => {
+                                    console.error("Error downloading image: ", error);
+                                });
+                        });
+                    }
                 },
             },
             child: imageArea,
@@ -200,6 +209,7 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                 Utils.timeout(1000, () => self.attribute.update(self, data));
             }
         });
+
         const imageActions = Revealer({
             transition: 'crossfade',
             transitionDuration: userOptions.animations.durationLarge,
@@ -218,14 +228,29 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                         icon: 'open_in_new',
                         action: () => execAsync(['xdg-open', `${data.source}`]).catch(print),
                     }),
+                    ImageAction({
+                        name: 'Save image',
+                        icon: 'save',
+                        action: () => {
+                            const downloadCommand = `curl -L -o '/home/shinlinux/Pictures/homework/${data.md5}.${data.file_ext}' '${data.file_url}'`;
+                            execAsync(['bash', '-c', downloadCommand])
+                                .then(() => {
+                                    print(`Image saved to /home/shinlinux/Pictures/homework/${data.md5}.${data.file_ext}`);
+                                })
+                                .catch(print);
+                        },
+                    }),
                 ]
             })
         });
+        
+
         const imageOverlay = Overlay({
             passThrough: true,
             child: imageBox,
             overlays: [imageActions]
         });
+
         const imageRevealer = Revealer({
             transition: 'slide_down',
             transitionDuration: userOptions.animations.durationLarge,
@@ -234,9 +259,11 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                 onHoverLost: () => { imageActions.revealChild = false },
                 child: imageOverlay,
             })
-        })
+        });
+
         return imageRevealer;
-    }
+    };
+
     const downloadState = Stack({
         homogeneous: false,
         transition: 'slide_up_down',
@@ -248,12 +275,14 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
             'error': PageState('error', 'Error'),
         },
     });
+
     const downloadIndicator = MarginRevealer({
         vpack: 'center',
         transition: 'slide_left',
         revealChild: true,
         child: downloadState,
     });
+
     const pageHeading = Box({
         vertical: true,
         children: [
@@ -289,35 +318,34 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
             })
         ]
     });
+
     const pageImages = Box({
         homogeneous: true,
         className: 'sidebar-booru-imagegrid margin-top-5',
-    })
+    });
+
     const pageImageRevealer = Revealer({
         transition: 'slide_down',
         transitionDuration: userOptions.animations.durationLarge,
         revealChild: false,
         child: pageImages,
     });
+
     const thisPage = Box({
         homogeneous: true,
         className: 'sidebar-chat-message',
         attribute: {
             'imagePath': '',
             'isNsfw': false,
-            'update': (data, force = false) => { // TODO: Use columns. Sort min to max h/w ratio then greedily put em in...
-                // Sort by .aspect_ratio
-                data = data.sort(
-                    (a, b) => a.aspect_ratio - b.aspect_ratio
-                );
+            'update': (data, force = false) => { 
+                console.log("Updating page with data: ", data);
+
                 if (data.length == 0) {
                     downloadState.shown = 'error';
                     return;
                 }
-                const imageColumns = userOptions.sidebar.image.columns;
-                const imageRows = data.length / imageColumns;
 
-                // Init cols
+                const imageColumns = userOptions.sidebar.image.columns;
                 pageImages.children = Array.from(
                     { length: imageColumns },
                     (_, i) => Box({
@@ -325,9 +353,10 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                         vertical: true,
                     })
                 );
-                // Greedy add O(n^2) 😭
+
+                data = data.sort((a, b) => a.aspect_ratio - b.aspect_ratio);
+
                 for (let i = 0; i < data.length; i++) {
-                    // Find column with lowest length
                     let minHeight = Infinity;
                     let minIndex = -1;
                     for (let j = 0; j < imageColumns; j++) {
@@ -337,32 +366,37 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                             minIndex = j;
                         }
                     }
-                    // Add image to it
-                    pageImages.children[minIndex].pack_start(PreviewImage(data[i], minIndex), false, false, 0)
-                    pageImages.children[minIndex].attribute.height += 1 / data[i].aspect_ratio; // we want height/width
+
+                    pageImages.children[minIndex].pack_start(PreviewImage(data[i], minIndex), false, false, 0);
+                    pageImages.children[minIndex].attribute.height += 1 / data[i].aspect_ratio;
                 }
+
                 pageImages.show_all();
 
-                // Reveal stuff
-                Utils.timeout(IMAGE_REVEAL_DELAY,
-                    () => pageImageRevealer.revealChild = true
-                );
+                Utils.timeout(IMAGE_REVEAL_DELAY, () => {
+                    pageImageRevealer.revealChild = true;
+                });
+
                 downloadIndicator.attribute.hide();
             },
         },
-        children: [Box({
-            vertical: true,
-            children: [
-                pageHeading,
-                Box({
-                    vertical: true,
-                    children: [pageImageRevealer],
-                })
-            ]
-        })],
+        children: [
+            Box({
+                vertical: true,
+                children: [
+                    pageHeading,
+                    Box({
+                        vertical: true,
+                        children: [pageImageRevealer],
+                    })
+                ]
+            })
+        ],
     });
+
     return thisPage;
-}
+};
+
 
 const booruContent = Box({
     className: 'spacing-v-15',
@@ -464,38 +498,45 @@ const clearChat = () => { // destroy!!
 }
 
 export const sendMessage = (text) => {
-    // Commands
-    if (text.startsWith('+')) { // Next page
-        const lastQuery = BooruService.queries.at(-1);
-        BooruService.fetch(`${lastQuery.realTagList.join(' ')} ${lastQuery.page + 1}`)
+    try {
+        if (text.startsWith('+')) {
+            const lastQuery = BooruService.queries.at(-1);
+            BooruService.fetch(`${lastQuery.realTagList.join(' ')} ${lastQuery.page + 1}`)
+        }
+        else if (text.startsWith('/')) {
+            if (text.startsWith('/clear')) clearChat();
+            else if (text.startsWith('/safe')) {
+                BooruService.nsfw = false;
+                const message = SystemMessage(`Switched to safe mode`, '/safe', booruView)
+                booruContent.add(message);
+                booruContent.show_all();
+                booruContent.attribute.map.set(Date.now(), message);
+            }
+            else if (text.startsWith('/lewd')) {
+                BooruService.nsfw = true;
+                const message = SystemMessage(`Tiddies enabled`, '/lewd', booruView)
+                booruContent.add(message);
+                booruContent.show_all();
+                booruContent.attribute.map.set(Date.now(), message);
+            }
+            else if (text.startsWith('/mode')) {
+                const mode = text.slice(text.indexOf(' ') + 1);
+                BooruService.mode = mode;
+                const message = SystemMessage(`Changed provider to ${BooruService.providerName}`, '/mode', booruView)
+                booruContent.add(message);
+                booruContent.show_all();
+                booruContent.attribute.map.set(Date.now(), message);
+            }
+            else if (text.startsWith('/next')) {
+                sendMessage('+')
+            }
+        }
+        else BooruService.fetch(text);
+    } catch (error) {
+        console.error('Error in sendMessage:', error);
+        const message = SystemMessage(`Error: ${error.message}`, '/error', booruView)
+        booruContent.add(message);
+        booruContent.show_all();
+        booruContent.attribute.map.set(Date.now(), message);
     }
-    else if (text.startsWith('/')) {
-        if (text.startsWith('/clear')) clearChat();
-        else if (text.startsWith('/safe')) {
-            BooruService.nsfw = false;
-            const message = SystemMessage(`Switched to safe mode`, '/safe', booruView)
-            booruContent.add(message);
-            booruContent.show_all();
-            booruContent.attribute.map.set(Date.now(), message);
-        }
-        else if (text.startsWith('/lewd')) {
-            BooruService.nsfw = true;
-            const message = SystemMessage(`Tiddies enabled`, '/lewd', booruView)
-            booruContent.add(message);
-            booruContent.show_all();
-            booruContent.attribute.map.set(Date.now(), message);
-        }
-        else if (text.startsWith('/mode')) {
-            const mode = text.slice(text.indexOf(' ') + 1);
-            BooruService.mode = mode;
-            const message = SystemMessage(`Changed provider to ${BooruService.providerName}`, '/mode', booruView)
-            booruContent.add(message);
-            booruContent.show_all();
-            booruContent.attribute.map.set(Date.now(), message);
-        }
-        else if (text.startsWith('/next')) {
-            sendMessage('+')
-        }
-    }
-    else BooruService.fetch(text);
 }
