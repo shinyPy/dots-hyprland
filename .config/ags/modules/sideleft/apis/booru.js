@@ -232,11 +232,18 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                         name: 'Save image',
                         icon: 'save',
                         action: () => {
-                            const downloadCommand = `curl -L -o '/home/shinlinux/Pictures/homework/${data.md5}.${data.file_ext}' '${data.file_url}'`;
-                            execAsync(['bash', '-c', downloadCommand])
-                                .then(() => {
-                                    print(`Image saved to /home/shinlinux/Pictures/homework/${data.md5}.${data.file_ext}`);
-                                })
+                            // Get the current tags from the BooruService
+                            const currentTags = BooruService.queries.at(-1).realTagList.filter(tag => !tag.includes('rating:')); // Filter out rating tags
+                            // Create the directory path based on tags
+                            const tagDirectory = currentTags.join('_');
+                            // Construct the bash command
+                            let fileExtension = data.file_ext || 'jpg'; // Default to 'jpg' if undefined
+                            const saveCommand = `mkdir -p $(xdg-user-dir PICTURES)/homework/${tagDirectory} && curl -L -o $(xdg-user-dir PICTURES)/homework/${tagDirectory}/${data.md5}.${fileExtension} '${data.file_url}'`;                            
+                            execAsync(['bash', '-c', saveCommand])
+                                // .then(() => {
+                                //     print(`Image saved to $(xdg-user-dir PICTURES)/homework/${tagDirectory}/${data.md5}.${data.file_ext}`);
+                                // })
+                                .then(() => self.label = 'done')
                                 .catch(print);
                         },
                     }),
@@ -501,8 +508,9 @@ export const sendMessage = (text) => {
     try {
         if (text.startsWith('+')) {
             const lastQuery = BooruService.queries.at(-1);
-            BooruService.fetch(`${lastQuery.realTagList.join(' ')} ${lastQuery.page + 1}`)
-        }
+            const filteredTags = lastQuery.realTagList.filter(tag => !tag.includes('rating:'));
+            BooruService.fetch(`${filteredTags.join(' ')} ${lastQuery.page + 1}`)
+        } 
         else if (text.startsWith('/')) {
             if (text.startsWith('/clear')) clearChat();
             else if (text.startsWith('/safe')) {
